@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, Tags, Users2, Landmark, LayoutDashboard, Wrench, 
   Calendar, ClipboardCheck, BarChart3, History, Bell, LogOut, 
-  User, CheckCircle, ChevronDown, UserCircle2, ArrowRightLeft, Shield, AlertTriangle
+  User, CheckCircle, ChevronDown, UserCircle2, ArrowRightLeft, Shield, AlertTriangle,
+  Search, SlidersHorizontal, Layers, Filter, Database
 } from 'lucide-react';
 
 // DB layer imports
@@ -10,7 +11,7 @@ import * as db from './db';
 import { 
   Employee, Department, AssetCategory, Asset, Allocation, 
   TransferRequest, ResourceBooking, MaintenanceRequest, AuditCycle, 
-  AuditItem, Notification, ActivityLog 
+  AuditItem, Notification, ActivityLog, EmployeeRole 
 } from './types';
 
 // Views imports
@@ -42,6 +43,11 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
 
+  // Compliance Logs Filter State
+  const [logSearch, setLogSearch] = useState('');
+  const [logRoleFilter, setLogRoleFilter] = useState<'All' | EmployeeRole | 'System'>('All');
+  const [logEntityFilter, setLogEntityFilter] = useState<string>('All');
+
   // Modals inside App.tsx
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -52,6 +58,22 @@ export default function App() {
   const [signupForm, setSignupForm] = useState({ name: '', email: '', departmentId: '' });
   const [authError, setAuthError] = useState('');
   const [isSigningUp, setIsSigningUp] = useState(false);
+
+  // Helper to get actor role for activity log
+  const getLogActorRole = (log: ActivityLog): 'Admin' | 'Asset Manager' | 'Department Head' | 'Employee' | 'System' => {
+    if (log.actorId === 'system') return 'System';
+    const emp = employees.find(e => e.id === log.actorId || e.name === log.actorName);
+    if (emp) return emp.role;
+    
+    // In case of seed logs or external logs where names might match partially or lookups fail
+    const nameLower = log.actorName.toLowerCase();
+    if (nameLower.includes('admin') || nameLower.includes('kshitij')) return 'Admin';
+    if (nameLower.includes('manager') || nameLower.includes('garvit')) return 'Asset Manager';
+    if (nameLower.includes('head') || nameLower.includes('rohan')) return 'Department Head';
+    if (nameLower.includes('employee') || nameLower.includes('priya') || nameLower.includes('amit') || nameLower.includes('bob')) return 'Employee';
+    
+    return 'Employee'; // fallback default
+  };
 
   // Initialize and load React states
   const reloadState = () => {
@@ -165,17 +187,19 @@ export default function App() {
 
   const handleRegisterAsset = (
     name: string, categoryId: string, serialNumber: string, acquisitionDate: string,
-    acquisitionCost: number, condition: any, location: string, isBookable: boolean, customFields: any
+    acquisitionCost: number, condition: any, location: string, isBookable: boolean, customFields: any,
+    photoUrls: string[] = [], id?: string
   ) => {
-    db.registerAsset(name, categoryId, serialNumber, acquisitionDate, acquisitionCost, condition, location, isBookable, customFields);
+    db.registerAsset(name, categoryId, serialNumber, acquisitionDate, acquisitionCost, condition, location, isBookable, customFields, photoUrls, id);
     reloadState();
   };
 
   const handleUpdateAsset = (
     id: string, name: string, categoryId: string, serialNumber: string, acquisitionDate: string,
-    acquisitionCost: number, condition: any, location: string, isBookable: boolean, status: any, customFields: any
+    acquisitionCost: number, condition: any, location: string, isBookable: boolean, status: any, customFields: any,
+    photoUrls?: string[]
   ) => {
-    db.updateAsset(id, name, categoryId, serialNumber, acquisitionDate, acquisitionCost, condition, location, isBookable, status, customFields);
+    db.updateAsset(id, name, categoryId, serialNumber, acquisitionDate, acquisitionCost, condition, location, isBookable, status, customFields, photoUrls);
     reloadState();
   };
 
@@ -213,8 +237,8 @@ export default function App() {
     reloadState();
   };
 
-  const handleRaiseMaintenanceRequest = (assetId: string, description: string, priority: any) => {
-    db.raiseMaintenanceRequest(assetId, description, priority);
+  const handleRaiseMaintenanceRequest = (assetId: string, description: string, priority: any, photoUrl: string | null = null, id?: string) => {
+    db.raiseMaintenanceRequest(assetId, description, priority, photoUrl, id);
     reloadState();
   };
 
@@ -438,6 +462,38 @@ export default function App() {
     setShowNotificationMenu(false);
     setShowProfileMenu(false);
   };
+
+  // Computed compliance activity log variables
+  const totalLogsCount = activityLogs.length;
+  const adminLogsCount = activityLogs.filter(log => getLogActorRole(log) === 'Admin').length;
+  const managerLogsCount = activityLogs.filter(log => getLogActorRole(log) === 'Asset Manager').length;
+  const headLogsCount = activityLogs.filter(log => getLogActorRole(log) === 'Department Head').length;
+  const empLogsCount = activityLogs.filter(log => getLogActorRole(log) === 'Employee').length;
+  const sysLogsCount = activityLogs.filter(log => getLogActorRole(log) === 'System').length;
+
+  const filteredLogs = activityLogs.filter(log => {
+    const role = getLogActorRole(log);
+    
+    // Filter by role
+    if (logRoleFilter !== 'All' && role !== logRoleFilter) return false;
+    
+    // Filter by entity type
+    if (logEntityFilter !== 'All' && log.entityType !== logEntityFilter) return false;
+    
+    // Filter by search query
+    if (logSearch.trim() !== '') {
+      const searchLower = logSearch.toLowerCase();
+      const matchSearch = 
+        log.actorName.toLowerCase().includes(searchLower) ||
+        log.action.toLowerCase().includes(searchLower) ||
+        log.details.toLowerCase().includes(searchLower) ||
+        role.toLowerCase().includes(searchLower) ||
+        log.entityType.toLowerCase().includes(searchLower);
+      if (!matchSearch) return false;
+    }
+    
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans" id="applet-main-container">
@@ -792,6 +848,8 @@ export default function App() {
               onCreateAuditCycle={handleCreateAuditCycle}
               onSaveAuditVerdict={handleSaveAuditVerdict}
               onCloseAuditCycle={handleCloseAuditCycle}
+              categories={categories}
+              allocations={allocations}
             />
           )}
 
@@ -808,36 +866,270 @@ export default function App() {
 
           {currentScreen === 'logs' && (
             /* COMPLIANCE LOGS PANEL */
-            <div className="space-y-4" id="compliance-logs-container">
+            <div className="space-y-6" id="compliance-logs-container">
               <div>
-                <h2 className="text-lg font-semibold text-white">System Compliance Activity Trails</h2>
-                <p className="text-xs text-slate-400">Read the ledger of custody alterations, safety verdicts, and login events.</p>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-indigo-400" />
+                  <span>Immutable System Compliance Audit Logs</span>
+                </h2>
+                <p className="text-xs text-slate-400">Ledger of secure custody alterations, safety audits, and login events across all organization tiers.</p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                <div className="p-4 bg-slate-800/30 border-b border-slate-800 flex items-center justify-between">
-                  <span className="font-semibold text-xs text-slate-400 font-mono uppercase">Immutable Audit Trail</span>
-                  <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded font-bold">SOX Compliance</span>
+              {/* KPI Grid showing counts by role */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {/* ALL */}
+                <button
+                  type="button"
+                  onClick={() => setLogRoleFilter('All')}
+                  className={`p-3 rounded-xl border text-left transition relative cursor-pointer ${
+                    logRoleFilter === 'All'
+                      ? 'bg-indigo-600/10 border-indigo-500 shadow-md shadow-indigo-500/5'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700/80'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">All Logs</span>
+                  <span className="text-lg font-bold text-white block mt-1">{totalLogsCount}</span>
+                  <span className="text-[9px] text-slate-500 block">Total operations</span>
+                </button>
+
+                {/* Admin */}
+                <button
+                  type="button"
+                  onClick={() => setLogRoleFilter('Admin')}
+                  className={`p-3 rounded-xl border text-left transition relative cursor-pointer ${
+                    logRoleFilter === 'Admin'
+                      ? 'bg-rose-950/20 border-rose-500 shadow-md shadow-rose-500/5'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700/80'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider block flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    <span>Admin</span>
+                  </span>
+                  <span className="text-lg font-bold text-white block mt-1">{adminLogsCount}</span>
+                  <span className="text-[9px] text-slate-500 block">Governance logs</span>
+                </button>
+
+                {/* Asset Manager */}
+                <button
+                  type="button"
+                  onClick={() => setLogRoleFilter('Asset Manager')}
+                  className={`p-3 rounded-xl border text-left transition relative cursor-pointer ${
+                    logRoleFilter === 'Asset Manager'
+                      ? 'bg-purple-950/20 border-purple-500 shadow-md shadow-purple-500/5'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700/80'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wider block flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                    <span>Asset Manager</span>
+                  </span>
+                  <span className="text-lg font-bold text-white block mt-1">{managerLogsCount}</span>
+                  <span className="text-[9px] text-slate-500 block">Inventory logs</span>
+                </button>
+
+                {/* Department Head */}
+                <button
+                  type="button"
+                  onClick={() => setLogRoleFilter('Department Head')}
+                  className={`p-3 rounded-xl border text-left transition relative cursor-pointer ${
+                    logRoleFilter === 'Department Head'
+                      ? 'bg-amber-950/20 border-amber-500 shadow-md shadow-amber-500/5'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700/80'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    <span>Dept Head</span>
+                  </span>
+                  <span className="text-lg font-bold text-white block mt-1">{headLogsCount}</span>
+                  <span className="text-[9px] text-slate-500 block">Transfer approvals</span>
+                </button>
+
+                {/* Employee */}
+                <button
+                  type="button"
+                  onClick={() => setLogRoleFilter('Employee')}
+                  className={`p-3 rounded-xl border text-left transition relative cursor-pointer ${
+                    logRoleFilter === 'Employee'
+                      ? 'bg-sky-950/20 border-sky-500 shadow-md shadow-sky-500/5'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700/80'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-sky-400 uppercase tracking-wider block flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                    <span>Employee</span>
+                  </span>
+                  <span className="text-lg font-bold text-white block mt-1">{empLogsCount}</span>
+                  <span className="text-[9px] text-slate-500 block">Usage & requests</span>
+                </button>
+
+                {/* System */}
+                <button
+                  type="button"
+                  onClick={() => setLogRoleFilter('System')}
+                  className={`p-3 rounded-xl border text-left transition relative cursor-pointer ${
+                    logRoleFilter === 'System'
+                      ? 'bg-slate-800/30 border-slate-700 shadow-md shadow-slate-500/5'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700/80'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    <span>System</span>
+                  </span>
+                  <span className="text-lg font-bold text-white block mt-1">{sysLogsCount}</span>
+                  <span className="text-[9px] text-slate-500 block">Automated tasks</span>
+                </button>
+              </div>
+
+              {/* Filtering Interface */}
+              <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row items-center gap-3">
+                {/* Search Bar */}
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search logs by actor name, action description, role, keyword..."
+                    value={logSearch}
+                    onChange={e => setLogSearch(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                  />
                 </div>
 
-                <div className="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
-                  {activityLogs.map(log => (
-                    <div key={log.id} className="p-4 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-850/30">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white">{log.actorName}</span>
-                          <span className="text-slate-500">•</span>
-                          <span className="text-[10px] font-mono font-bold uppercase text-indigo-400 bg-indigo-500/5 px-1.5 py-0.2 rounded border border-indigo-500/20">{log.action}</span>
-                        </div>
-                        <p className="text-slate-300">{log.details}</p>
-                      </div>
-                      <div className="text-right shrink-0 text-slate-500 font-mono text-[10px]">
-                        <p>{new Date(log.timestamp).toLocaleDateString()}</p>
-                        <p>{new Date(log.timestamp).toLocaleTimeString()}</p>
-                      </div>
-                    </div>
-                  ))}
+                {/* Entity Filter Dropdown */}
+                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                  <span className="text-xs text-slate-400 font-medium whitespace-nowrap hidden sm:inline flex items-center gap-1">
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Entity type:</span>
+                  </span>
+                  <select
+                    value={logEntityFilter}
+                    onChange={e => setLogEntityFilter(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 min-w-[140px] w-full md:w-auto cursor-pointer"
+                  >
+                    <option value="All">All Entities</option>
+                    <option value="Asset">Assets</option>
+                    <option value="Allocation">Allocations</option>
+                    <option value="Transfer">Transfers</option>
+                    <option value="Booking">Bookings</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Audit">Audits</option>
+                    <option value="Department">Departments</option>
+                    <option value="Category">Categories</option>
+                    <option value="Employee">Employees</option>
+                  </select>
                 </div>
+
+                {/* Reset Filters */}
+                {(logSearch !== '' || logRoleFilter !== 'All' || logEntityFilter !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogSearch('');
+                      setLogRoleFilter('All');
+                      setLogEntityFilter('All');
+                    }}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer whitespace-nowrap bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-2.5 rounded-lg border border-indigo-500/20 transition w-full md:w-auto text-center"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+
+              {/* Logs Display Card */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                <div className="p-4 bg-slate-800/30 border-b border-slate-800 flex items-center justify-between">
+                  <span className="font-semibold text-xs text-slate-400 font-mono uppercase">
+                    {logRoleFilter === 'All' ? 'Complete Organization' : `${logRoleFilter}`} Compliance Trails ({filteredLogs.length})
+                  </span>
+                  <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded font-bold">SOX Audit Ledger</span>
+                </div>
+
+                {filteredLogs.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 italic text-sm">
+                    No compliance logs match the active filter criteria. Try adjusting the search query or actor roles above.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-800/60 max-h-[600px] overflow-y-auto">
+                    {filteredLogs.map(log => {
+                      const role = getLogActorRole(log);
+                      
+                      // Role styling map
+                      const roleBadgeClass = {
+                        'Admin': 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+                        'Asset Manager': 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
+                        'Department Head': 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+                        'Employee': 'bg-sky-500/10 text-sky-400 border border-sky-500/20',
+                        'System': 'bg-slate-500/10 text-slate-400 border border-slate-500/20',
+                      }[role];
+
+                      // Icon picking based on entityType
+                      const renderEntityIcon = () => {
+                        switch(log.entityType) {
+                          case 'Asset': return <Database className="w-3.5 h-3.5 text-emerald-400" />;
+                          case 'Allocation': return <User className="w-3.5 h-3.5 text-indigo-400" />;
+                          case 'Transfer': return <ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />;
+                          case 'Booking': return <Calendar className="w-3.5 h-3.5 text-purple-400" />;
+                          case 'Maintenance': return <Wrench className="w-3.5 h-3.5 text-rose-400" />;
+                          case 'Audit': return <ClipboardCheck className="w-3.5 h-3.5 text-amber-400" />;
+                          case 'Department': return <Building2 className="w-3.5 h-3.5 text-teal-400" />;
+                          case 'Category': return <Tags className="w-3.5 h-3.5 text-indigo-400" />;
+                          case 'Employee': return <Users2 className="w-3.5 h-3.5 text-blue-400" />;
+                          default: return <Shield className="w-3.5 h-3.5 text-slate-400" />;
+                        }
+                      };
+
+                      return (
+                        <div key={log.id} className="p-4 text-xs flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:bg-slate-850/30 transition">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {/* Entity Icon Container */}
+                            <div className="p-2 bg-slate-950 border border-slate-800 rounded-lg shrink-0 mt-0.5">
+                              {renderEntityIcon()}
+                            </div>
+
+                            {/* Info */}
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {/* Actor Name */}
+                                <span className="font-bold text-white whitespace-nowrap">{log.actorName}</span>
+                                
+                                {/* Actor Role Badge */}
+                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${roleBadgeClass}`}>
+                                  {role}
+                                </span>
+
+                                <span className="text-slate-600 text-xs hidden sm:inline">&bull;</span>
+                                
+                                {/* Action badge */}
+                                <span className="text-[10px] font-mono font-bold uppercase text-indigo-400 bg-indigo-500/5 px-1.5 py-0.2 rounded border border-indigo-500/10 whitespace-nowrap">
+                                  {log.action}
+                                </span>
+                              </div>
+
+                              {/* Details */}
+                              <p className="text-slate-300 leading-relaxed text-[11px] font-medium break-words">{log.details}</p>
+                              
+                              {/* Entity type and ID details */}
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+                                <span className="uppercase">{log.entityType} ID:</span>
+                                <span className="text-slate-400 bg-slate-950 px-1 py-0.2 rounded border border-slate-850">{log.entityId}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Timestamp info */}
+                          <div className="text-left sm:text-right shrink-0 text-slate-500 font-mono text-[10px] space-y-1 pt-0.5">
+                            <div className="flex sm:flex-col gap-1.5 sm:gap-0.5 justify-start sm:justify-end">
+                              <span className="text-slate-400 font-semibold">{new Date(log.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              <span className="text-slate-500">{new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}

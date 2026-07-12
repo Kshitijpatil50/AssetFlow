@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { 
   Wrench, Plus, CheckCircle, Clock, ShieldAlert, AlertTriangle, 
-  HelpCircle, User, HardHat, FileText, CheckCircle2, ClipboardList
+  HelpCircle, User, HardHat, FileText, CheckCircle2, ClipboardList,
+  Loader2
 } from 'lucide-react';
+import ImageDropzone from './ImageDropzone';
 import { Asset, Employee, MaintenanceRequest } from '../types';
 
 interface MaintenanceViewProps {
@@ -10,7 +12,7 @@ interface MaintenanceViewProps {
   assets: Asset[];
   employees: Employee[];
   maintenance: MaintenanceRequest[];
-  onRaiseRequest: (assetId: string, description: string, priority: MaintenanceRequest['priority']) => void;
+  onRaiseRequest: (assetId: string, description: string, priority: MaintenanceRequest['priority'], photoUrl: string | null, id?: string) => void;
   onUpdateStatus: (requestId: string, status: MaintenanceRequest['status'], technicianName?: string) => void;
 }
 
@@ -25,6 +27,9 @@ export default function MaintenanceView({
   const isManagerOrAdmin = currentUser.role === 'Asset Manager' || currentUser.role === 'Admin';
 
   const [showRaiseModal, setShowRaiseModal] = useState(false);
+  const [ticketId, setTicketId] = useState('');
+  const [ticketPhotoUrl, setTicketPhotoUrl] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<MaintenanceRequest['priority']>('Medium');
@@ -37,11 +42,12 @@ export default function MaintenanceView({
   // Raise Submit
   const handleRaiseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAssetId || !description.trim()) return;
-    onRaiseRequest(selectedAssetId, description.trim(), priority);
+    if (!selectedAssetId || !description.trim() || isUploadingPhoto) return;
+    onRaiseRequest(selectedAssetId, description.trim(), priority, ticketPhotoUrl, ticketId);
     setShowRaiseModal(false);
     setSelectedAssetId('');
     setDescription('');
+    setTicketPhotoUrl(null);
   };
 
   // Assign Submit
@@ -112,6 +118,8 @@ export default function MaintenanceView({
             setSelectedAssetId(assets[0]?.id || '');
             setDescription('');
             setPriority('Medium');
+            setTicketId(`maint-${Date.now()}`);
+            setTicketPhotoUrl(null);
             setShowRaiseModal(true);
           }}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition cursor-pointer"
@@ -149,6 +157,25 @@ export default function MaintenanceView({
                   </div>
 
                   <p className="text-slate-300 text-sm leading-relaxed">{req.issueDescription}</p>
+
+                  {req.photoUrl && (
+                    <div className="pt-2" id={`maint-photo-${req.id}`}>
+                      <a 
+                        href={req.photoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="inline-block relative rounded-lg border border-slate-800 overflow-hidden bg-slate-950/40 w-32 aspect-video group shadow-inner"
+                        title="View photo evidence"
+                      >
+                        <img 
+                          src={req.photoUrl} 
+                          alt="Issue evidence" 
+                          referrerPolicy="no-referrer" 
+                          className="w-full h-full object-cover hover:scale-105 transition duration-300" 
+                        />
+                      </a>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 font-medium">
                     <p className="flex items-center gap-1"><User className="w-3.5 h-3.5 text-slate-600" /> <span>Reported By: {getReporterName(req.raisedBy)}</span></p>
@@ -277,6 +304,18 @@ export default function MaintenanceView({
                 ></textarea>
               </div>
 
+              {/* Evidence Photo Drag & Drop Upload */}
+              <div className="space-y-1">
+                <label className="text-xs text-slate-400 font-bold uppercase">Defect Photo Evidence</label>
+                <ImageDropzone
+                  storagePath={`maintenance/${ticketId}/photos`}
+                  onUploadComplete={(urls) => setTicketPhotoUrl(urls[0] || null)}
+                  onUploadingStateChange={(isUploading) => setIsUploadingPhoto(isUploading)}
+                  initialUrls={ticketPhotoUrl ? [ticketPhotoUrl] : []}
+                  multiple={false}
+                />
+              </div>
+
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-3">
                 <button
                   type="button"
@@ -287,9 +326,15 @@ export default function MaintenanceView({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg cursor-pointer"
+                  disabled={isUploadingPhoto}
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 cursor-pointer transition ${
+                    isUploadingPhoto
+                      ? 'bg-indigo-700/60 text-indigo-300 cursor-not-allowed opacity-75'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  }`}
                 >
-                  File Ticket
+                  {isUploadingPhoto && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isUploadingPhoto ? 'Uploading...' : 'File Ticket'}</span>
                 </button>
               </div>
             </form>

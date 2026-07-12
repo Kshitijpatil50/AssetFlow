@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { 
   Search, SlidersHorizontal, Plus, Info, Edit, Trash2, Calendar, 
-  MapPin, CheckCircle, ShieldAlert, History, HelpCircle, FileText, Wrench
+  MapPin, CheckCircle, ShieldAlert, History, HelpCircle, FileText, Wrench,
+  Loader2
 } from 'lucide-react';
+import ImageDropzone from './ImageDropzone';
 import { Asset, AssetCategory, Employee, Department, Allocation, MaintenanceRequest } from '../types';
 
 interface AssetDirectoryViewProps {
@@ -16,12 +18,14 @@ interface AssetDirectoryViewProps {
   onRegisterAsset: (
     name: string, categoryId: string, serialNumber: string, acquisitionDate: string,
     acquisitionCost: number, condition: Asset['condition'], location: string,
-    isBookable: boolean, customFieldValues: Record<string, string | number>
+    isBookable: boolean, customFieldValues: Record<string, string | number>,
+    photoUrls?: string[], id?: string
   ) => void;
   onUpdateAsset: (
     id: string, name: string, categoryId: string, serialNumber: string, acquisitionDate: string,
     acquisitionCost: number, condition: Asset['condition'], location: string,
-    isBookable: boolean, status: Asset['status'], customFieldValues: Record<string, string | number>
+    isBookable: boolean, status: Asset['status'], customFieldValues: Record<string, string | number>,
+    photoUrls?: string[]
   ) => void;
 }
 
@@ -50,9 +54,11 @@ export default function AssetDirectoryView({
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
   // Asset Form States
   const [assetForm, setAssetForm] = useState({
+    id: '',
     name: '',
     categoryId: '',
     serialNumber: '',
@@ -62,7 +68,8 @@ export default function AssetDirectoryView({
     location: '',
     isBookable: false,
     status: 'Available' as Asset['status'],
-    customFields: {} as Record<string, string | number>
+    customFields: {} as Record<string, string | number>,
+    photoUrls: [] as string[]
   });
 
   // Filter lists
@@ -91,6 +98,7 @@ export default function AssetDirectoryView({
     if (asset) {
       setEditingAsset(asset);
       setAssetForm({
+        id: asset.id,
         name: asset.name,
         categoryId: asset.categoryId,
         serialNumber: asset.serialNumber,
@@ -100,12 +108,14 @@ export default function AssetDirectoryView({
         location: asset.location,
         isBookable: asset.isBookable,
         status: asset.status,
-        customFields: asset.customFieldValues || {}
+        customFields: asset.customFieldValues || {},
+        photoUrls: asset.photoUrls || []
       });
     } else {
       setEditingAsset(null);
       const defaultCat = categories[0]?.id || '';
       setAssetForm({
+        id: `asset-${Date.now()}`,
         name: '',
         categoryId: defaultCat,
         serialNumber: '',
@@ -115,7 +125,8 @@ export default function AssetDirectoryView({
         location: '',
         isBookable: false,
         status: 'Available',
-        customFields: {}
+        customFields: {},
+        photoUrls: []
       });
     }
     setShowRegisterModal(true);
@@ -123,6 +134,8 @@ export default function AssetDirectoryView({
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploadingPhotos) return;
+
     if (editingAsset) {
       onUpdateAsset(
         editingAsset.id,
@@ -135,7 +148,8 @@ export default function AssetDirectoryView({
         assetForm.location,
         assetForm.isBookable,
         assetForm.status,
-        assetForm.customFields
+        assetForm.customFields,
+        assetForm.photoUrls
       );
     } else {
       onRegisterAsset(
@@ -147,7 +161,9 @@ export default function AssetDirectoryView({
         assetForm.condition,
         assetForm.location,
         assetForm.isBookable,
-        assetForm.customFields
+        assetForm.customFields,
+        assetForm.photoUrls,
+        assetForm.id
       );
     }
     setShowRegisterModal(false);
@@ -533,6 +549,18 @@ export default function AssetDirectoryView({
                 </div>
               )}
 
+              {/* Image Upload Dropzone */}
+              <div className="space-y-1">
+                <label className="text-xs text-slate-400 font-bold uppercase">Asset Photos</label>
+                <ImageDropzone
+                  storagePath={`assets/${assetForm.id}/photos`}
+                  onUploadComplete={(urls) => setAssetForm((prev) => ({ ...prev, photoUrls: urls }))}
+                  onUploadingStateChange={(isUploading) => setIsUploadingPhotos(isUploading)}
+                  initialUrls={assetForm.photoUrls}
+                  multiple={true}
+                />
+              </div>
+
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-3">
                 <button
                   type="button"
@@ -543,9 +571,15 @@ export default function AssetDirectoryView({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg cursor-pointer"
+                  disabled={isUploadingPhotos}
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 cursor-pointer transition ${
+                    isUploadingPhotos
+                      ? 'bg-indigo-700/60 text-indigo-300 cursor-not-allowed opacity-75'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  }`}
                 >
-                  {editingAsset ? 'Save Changes' : 'Register Asset'}
+                  {isUploadingPhotos && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isUploadingPhotos ? 'Uploading...' : editingAsset ? 'Save Changes' : 'Register Asset'}</span>
                 </button>
               </div>
             </form>
@@ -598,6 +632,32 @@ export default function AssetDirectoryView({
                 <p className="font-semibold text-slate-300">{selectedAsset.condition}</p>
               </div>
             </div>
+
+            {/* Asset Photos Gallery in Drawer */}
+            {selectedAsset.photoUrls && selectedAsset.photoUrls.length > 0 && (
+              <div className="space-y-2" id="asset-gallery-inspection">
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Asset Photo Gallery</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedAsset.photoUrls.map((url, idx) => (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aspect-square bg-slate-850 border border-slate-800 rounded-lg overflow-hidden block group relative shadow-inner"
+                      title="View full image"
+                    >
+                      <img
+                        src={url}
+                        alt={`${selectedAsset.name} ${idx + 1}`}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover hover:scale-105 transition duration-300"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* TAB-STYLE ALLOCATIONS vs MAINTENANCE TIMELINE */}
             <div className="space-y-4">

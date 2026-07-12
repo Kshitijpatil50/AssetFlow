@@ -494,14 +494,16 @@ export function updateEmployeeRole(employeeId: string, role: EmployeeRole, depar
 export function registerAsset(
   name: string, categoryId: string, serialNumber: string, acquisitionDate: string,
   acquisitionCost: number, condition: Asset['condition'], location: string,
-  isBookable: boolean, customFieldValues: Record<string, string | number>
+  isBookable: boolean, customFieldValues: Record<string, string | number>,
+  photoUrls: string[] = [],
+  id?: string
 ): Asset {
   // Auto-generate Asset Tag e.g. AF-XXXX
   const nextNum = assets.length + 1;
   const assetTag = `AF-${String(nextNum).padStart(4, '0')}`;
 
   const newAsset: Asset = {
-    id: `asset-${Date.now()}`,
+    id: id || `asset-${Date.now()}`,
     name,
     categoryId,
     assetTag,
@@ -510,7 +512,7 @@ export function registerAsset(
     acquisitionCost,
     condition,
     location,
-    photoUrls: [],
+    photoUrls,
     documentUrls: [],
     isBookable,
     status: 'Available',
@@ -530,13 +532,15 @@ export function registerAsset(
 export function updateAsset(
   id: string, name: string, categoryId: string, serialNumber: string, acquisitionDate: string,
   acquisitionCost: number, condition: Asset['condition'], location: string,
-  isBookable: boolean, status: Asset['status'], customFieldValues: Record<string, string | number>
+  isBookable: boolean, status: Asset['status'], customFieldValues: Record<string, string | number>,
+  photoUrls?: string[]
 ) {
   assets = assets.map(a => {
     if (a.id === id) {
       return { 
         ...a, name, categoryId, serialNumber, acquisitionDate, acquisitionCost, 
-        condition, location, isBookable, status, customFieldValues 
+        condition, location, isBookable, status, customFieldValues,
+        photoUrls: photoUrls !== undefined ? photoUrls : a.photoUrls
       };
     }
     return a;
@@ -929,16 +933,22 @@ export function cancelBooking(bookingId: string) {
 }
 
 // 8. Maintenance Management (Strict Business Rule 4 status cascade)
-export function raiseMaintenanceRequest(assetId: string, issueDescription: string, priority: MaintenanceRequest['priority']): MaintenanceRequest {
+export function raiseMaintenanceRequest(
+  assetId: string, 
+  issueDescription: string, 
+  priority: MaintenanceRequest['priority'],
+  photoUrl: string | null = null,
+  id?: string
+): MaintenanceRequest {
   const user = getCurrentUser()!;
   
   const newReq: MaintenanceRequest = {
-    id: `maint-${Date.now()}`,
+    id: id || `maint-${Date.now()}`,
     assetId,
     raisedBy: user.id,
     issueDescription,
     priority,
-    photoUrl: null,
+    photoUrl,
     status: 'Pending',
   };
 
