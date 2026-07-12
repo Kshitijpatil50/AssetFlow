@@ -11,6 +11,16 @@
 Crafted with high-contrast displays, intuitive navigation, and smooth motion choreographies, AssetFlow delivers a secure, offline-capable local state engine (coupled with optional Firebase integration) and an immutable compliance logging mechanism built to satisfy rigorous internal and SOX-compliance audits.
 
 ---
+## 🚀 Live Demo
+
+🌐 **Application:** https://asset-flow-blue-eight.vercel.app/
+
+## 🎥 Demo Video
+
+📹 **Google Drive:** <PASTE_YOUR_GOOGLE_DRIVE_LINK_HERE>
+
+> **Note:** If the live demo is temporarily unavailable due to Firebase quota, network restrictions, or maintenance, please refer to the demo video above for the complete application walkthrough.
+---
 
 ## 🎨 Visual Identity & Theme
 
