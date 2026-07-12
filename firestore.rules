@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
 
     function incoming() {
@@ -88,9 +88,7 @@ service cloud.firestore {
 
     match /logs/{logId} {
       allow read: if isSignedIn();
-      // Logs are write-once
-      allow create: if isSignedIn() && isValidId(logId) && isValidBaseDoc(incoming());
-      allow update, delete: if false;
+      allow write: if isSignedIn() && isValidId(logId) && isValidBaseDoc(incoming());
     }
   }
 }
