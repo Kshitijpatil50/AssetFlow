@@ -17,7 +17,7 @@ Crafted with high-contrast displays, intuitive navigation, and smooth motion cho
 
 ## 🎥 Demo Video
 
-📹 **Google Drive:** <PASTE_YOUR_GOOGLE_DRIVE_LINK_HERE>
+📹 **Google Drive:** https://drive.google.com/file/d/1GQDBBzb7I-_a5vY4y6Sk4R6_M-FzW5mt/view?usp=sharing
 
 > **Note:** If the live demo is temporarily unavailable due to Firebase quota, network restrictions, or maintenance, please refer to the demo video above for the complete application walkthrough.
 ---
