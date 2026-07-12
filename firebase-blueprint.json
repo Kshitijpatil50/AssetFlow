@@ -1,0 +1,242 @@
+{
+  "entities": {
+    "Department": {
+      "title": "Department",
+      "description": "An organization department",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "headEmployeeId": { "type": "string" },
+        "parentDepartmentId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["id", "name", "code", "status"]
+    },
+    "AssetCategory": {
+      "title": "AssetCategory",
+      "description": "A category for organization assets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "customFields": { "type": "array" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "An organization employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "departmentId": { "type": "string" },
+        "role": { "type": "string", "enum": ["Employee", "Department Head", "Asset Manager", "Admin"] },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "status", "createdAt"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "A tracked physical asset",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "assetTag": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "acquisitionDate": { "type": "string" },
+        "acquisitionCost": { "type": "number" },
+        "condition": { "type": "string", "enum": ["New", "Good", "Fair", "Poor", "Broken"] },
+        "location": { "type": "string" },
+        "photoUrls": { "type": "array" },
+        "documentUrls": { "type": "array" },
+        "isBookable": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Available", "Allocated", "Reserved", "Under Maintenance", "Lost", "Retired", "Disposed"] },
+        "customFieldValues": { "type": "object" }
+      },
+      "required": ["id", "name", "categoryId", "assetTag", "serialNumber", "acquisitionDate", "acquisitionCost", "condition", "location", "isBookable", "status"]
+    },
+    "Allocation": {
+      "title": "Allocation",
+      "description": "Asset allocation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "departmentId": { "type": "string" },
+        "allocatedDate": { "type": "string" },
+        "expectedReturnDate": { "type": "string" },
+        "actualReturnDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Returned", "Overdue"] },
+        "conditionCheckInNotes": { "type": "string" },
+        "history": { "type": "array" }
+      },
+      "required": ["id", "assetId", "allocatedDate", "status"]
+    },
+    "TransferRequest": {
+      "title": "TransferRequest",
+      "description": "Asset transfer request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "fromHolderId": { "type": "string" },
+        "toHolderId": { "type": "string" },
+        "requestedBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["Requested", "Approved", "Rejected", "Re-allocated"] },
+        "approvedBy": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "assetId", "fromHolderId", "toHolderId", "requestedBy", "status", "timestamp"]
+    },
+    "ResourceBooking": {
+      "title": "ResourceBooking",
+      "description": "Booking for shared assets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "resourceAssetId": { "type": "string" },
+        "bookedBy": { "type": "string" },
+        "departmentId": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["Upcoming", "Ongoing", "Completed", "Cancelled"] }
+      },
+      "required": ["id", "resourceAssetId", "bookedBy", "startTime", "endTime", "status"]
+    },
+    "MaintenanceRequest": {
+      "title": "MaintenanceRequest",
+      "description": "Asset maintenance workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "raisedBy": { "type": "string" },
+        "issueDescription": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "photoUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Technician Assigned", "In Progress", "Resolved"] },
+        "technicianName": { "type": "string" },
+        "resolvedAt": { "type": "string" }
+      },
+      "required": ["id", "assetId", "raisedBy", "issueDescription", "priority", "status"]
+    },
+    "AuditCycle": {
+      "title": "AuditCycle",
+      "description": "Organization physical inventory check cycle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "scopeDepartmentId": { "type": "string" },
+        "scopeLocation": { "type": "string" },
+        "dateRangeStart": { "type": "string" },
+        "dateRangeEnd": { "type": "string" },
+        "auditorIds": { "type": "array" },
+        "status": { "type": "string", "enum": ["Open", "Closed"] }
+      },
+      "required": ["id", "dateRangeStart", "dateRangeEnd", "auditorIds", "status"]
+    },
+    "AuditItem": {
+      "title": "AuditItem",
+      "description": "Inventory check item verdict",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "auditCycleId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "verdict": { "type": "string", "enum": ["Verified", "Missing", "Damaged"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "auditCycleId", "assetId", "verdict", "notes"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientEmployeeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Asset Assigned", "Maintenance Status", "Booking Status", "Transfer Status", "Overdue Alert", "Audit Discrepancy", "System"] },
+        "message": { "type": "string" },
+        "relatedEntityId": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "recipientEmployeeId", "type", "message", "relatedEntityId", "read", "createdAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Activity log record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actorName": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string", "enum": ["Asset", "Allocation", "Transfer", "Booking", "Maintenance", "Audit", "Department", "Category", "Employee"] },
+        "entityId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "actorId", "actorName", "action", "entityType", "entityId", "timestamp", "details"]
+    }
+  },
+  "firestore": {
+    "departments/{departmentId}": {
+      "schema": "Department",
+      "description": "Departments directory"
+    },
+    "categories/{categoryId}": {
+      "schema": "AssetCategory",
+      "description": "Asset categories configuration"
+    },
+    "employees/{employeeId}": {
+      "schema": "Employee",
+      "description": "Staff and role listings"
+    },
+    "assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Corporate asset register"
+    },
+    "allocations/{allocationId}": {
+      "schema": "Allocation",
+      "description": "Active and historic allocations"
+    },
+    "transfers/{transferId}": {
+      "schema": "TransferRequest",
+      "description": "Asset handovers/transfers"
+    },
+    "bookings/{bookingId}": {
+      "schema": "ResourceBooking",
+      "description": "Bookings for meeting rooms or hotdesks"
+    },
+    "maintenance/{maintenanceId}": {
+      "schema": "MaintenanceRequest",
+      "description": "Equipment maintenance flows"
+    },
+    "audits/{auditId}": {
+      "schema": "AuditCycle",
+      "description": "Physical asset verification campaigns"
+    },
+    "auditItems/{auditItemId}": {
+      "schema": "AuditItem",
+      "description": "Asset checklists per audit campaign"
+    },
+    "notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notification queue"
+    },
+    "logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Global tamper-proof access log"
+    }
+  }
+}

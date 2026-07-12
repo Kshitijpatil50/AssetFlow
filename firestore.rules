@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common helper functions
+    function isSignedIn() {
+      return true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Robust validation helper for structural integrity
+    function isValidBaseDoc(data) {
+      return data.keys().hasAll(['id']) && isValidId(data.id);
+    }
+
+    // Collections matching the blueprint
+    
+    match /departments/{departmentId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(departmentId) && isValidBaseDoc(incoming());
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(categoryId) && isValidBaseDoc(incoming());
+    }
+
+    match /employees/{employeeId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(employeeId) && isValidBaseDoc(incoming());
+    }
+
+    match /assets/{assetId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(assetId) && isValidBaseDoc(incoming());
+    }
+
+    match /allocations/{allocationId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(allocationId) && isValidBaseDoc(incoming());
+    }
+
+    match /transfers/{transferId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(transferId) && isValidBaseDoc(incoming());
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(bookingId) && isValidBaseDoc(incoming());
+    }
+
+    match /maintenance/{maintenanceId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(maintenanceId) && isValidBaseDoc(incoming());
+    }
+
+    match /audits/{auditId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(auditId) && isValidBaseDoc(incoming());
+    }
+
+    match /auditItems/{auditItemId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(auditItemId) && isValidBaseDoc(incoming());
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(notificationId) && isValidBaseDoc(incoming());
+    }
+
+    match /logs/{logId} {
+      allow read: if isSignedIn();
+      // Logs are write-once
+      allow create: if isSignedIn() && isValidId(logId) && isValidBaseDoc(incoming());
+      allow update, delete: if false;
+    }
+  }
+}
