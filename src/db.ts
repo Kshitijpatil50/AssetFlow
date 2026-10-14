@@ -122,10 +122,30 @@ function setStorageItem<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+// Constant for default admin
+export const DEFAULT_ADMIN_ID = 'emp-sarah';
+
+// Ensure Kshitij Patil (Admin) always exists and is Active
+export function ensureAdminEmployee(list: Employee[]): Employee[] {
+  const adminIndex = list.findIndex(e => e.id === DEFAULT_ADMIN_ID || (e.role === 'Admin' && e.name.toLowerCase().includes('kshitij')));
+  if (adminIndex >= 0) {
+    if (list[adminIndex].status !== 'Active' || list[adminIndex].role !== 'Admin') {
+      list[adminIndex] = {
+        ...list[adminIndex],
+        status: 'Active',
+        role: 'Admin',
+      };
+    }
+  } else {
+    list.unshift(SEED_EMPLOYEES[0]);
+  }
+  return list;
+}
+
 // Initial state load
 export let departments: Department[] = getStorageItem(KEYS.DEPARTMENTS, SEED_DEPARTMENTS);
 export let categories: AssetCategory[] = getStorageItem(KEYS.CATEGORIES, SEED_CATEGORIES);
-export let employees: Employee[] = getStorageItem(KEYS.EMPLOYEES, SEED_EMPLOYEES);
+export let employees: Employee[] = ensureAdminEmployee(getStorageItem(KEYS.EMPLOYEES, SEED_EMPLOYEES));
 export let assets: Asset[] = getStorageItem(KEYS.ASSETS, SEED_ASSETS);
 export let allocations: Allocation[] = getStorageItem(KEYS.ALLOCATIONS, SEED_ALLOCATIONS);
 export let transfers: TransferRequest[] = getStorageItem(KEYS.TRANSFERS, []);
@@ -174,7 +194,7 @@ if (hasOldNames) {
   // Reload variables with clean seeds
   departments = SEED_DEPARTMENTS;
   categories = SEED_CATEGORIES;
-  employees = SEED_EMPLOYEES;
+  employees = ensureAdminEmployee(SEED_EMPLOYEES);
   assets = SEED_ASSETS;
   allocations = SEED_ALLOCATIONS;
   bookings = SEED_BOOKINGS;
@@ -195,7 +215,19 @@ if (hasOldNames) {
   setStorageItem(KEYS.AUDIT_ITEMS, auditItems);
 }
 
-export let currentUserId: string | null = localStorage.getItem(KEYS.CURRENT_USER_ID) || 'emp-sarah'; // Default to Admin for testing
+// Current user ID default to Kshitij Patil (Admin)
+const storedUserId = localStorage.getItem(KEYS.CURRENT_USER_ID);
+export let currentUserId: string | null = (storedUserId && storedUserId !== 'null' && storedUserId !== 'undefined') ? storedUserId : DEFAULT_ADMIN_ID;
+
+// Helper to get default admin user
+export function getDefaultAdminUser(): Employee {
+  const found = employees.find(e => e.id === DEFAULT_ADMIN_ID || e.role === 'Admin' || e.name.toLowerCase().includes('kshitij'));
+  if (found) {
+    if (found.status !== 'Active') found.status = 'Active';
+    return found;
+  }
+  return SEED_EMPLOYEES[0];
+}
 
 // Save functions
 const saveState = {
@@ -328,18 +360,61 @@ checkOverdueAllocations();
 
 // Authentication API
 export function getCurrentUser(): Employee | null {
-  if (!currentUserId) return null;
-  return employees.find(e => e.id === currentUserId && e.status === 'Active') || null;
+  if (currentUserId === 'logged_out') {
+    return null;
+  }
+  
+  if (!currentUserId) {
+    const defaultAdmin = getDefaultAdminUser();
+    currentUserId = defaultAdmin.id;
+    localStorage.setItem(KEYS.CURRENT_USER_ID, currentUserId);
+    return defaultAdmin;
+  }
+
+  let user = employees.find(e => e.id === currentUserId);
+  if (user) {
+    if ((user.id === DEFAULT_ADMIN_ID || user.role === 'Admin') && user.status !== 'Active') {
+      user.status = 'Active';
+      saveState.employees();
+    }
+    return user;
+  }
+
+  // If stored ID not found in employees, return default admin
+  const defaultAdmin = getDefaultAdminUser();
+  currentUserId = defaultAdmin.id;
+  localStorage.setItem(KEYS.CURRENT_USER_ID, currentUserId);
+  return defaultAdmin;
 }
 
 export function login(email: string): { success: boolean; error?: string; user?: Employee } {
-  const user = employees.find(e => e.email.toLowerCase() === email.trim().toLowerCase());
-  if (!user) {
-    return { success: false, error: 'User not found.' };
+  const cleanEmail = email.trim().toLowerCase();
+  
+  // Check if logging in as Kshitij Patil (admin) via various valid aliases or the user's Google account email
+  const isAdminAlias = 
+    cleanEmail === 'admin@assetflow.com' ||
+    cleanEmail === 'kshitijpatilkunzarkar2550@gmail.com' ||
+    cleanEmail === 'admin' ||
+    cleanEmail === 'kshitij' ||
+    cleanEmail.includes('kshitij');
+
+  let user: Employee | undefined;
+  if (isAdminAlias) {
+    user = getDefaultAdminUser();
+  } else {
+    user = employees.find(e => e.email.toLowerCase() === cleanEmail);
   }
-  if (user.status === 'Inactive') {
+
+  if (!user) {
+    return { success: false, error: 'User not found. Use the quick demo options below or log in as Kshitij Patil.' };
+  }
+
+  if (user.id === DEFAULT_ADMIN_ID || user.role === 'Admin') {
+    user.status = 'Active';
+  } else if (user.status === 'Inactive') {
     return { success: false, error: 'Account is inactive. Please contact your Admin.' };
   }
+
   currentUserId = user.id;
   localStorage.setItem(KEYS.CURRENT_USER_ID, currentUserId);
   logActivity(user.id, user.name, 'Logged In', 'Employee', user.id, `User logged in with email: ${email}`);
@@ -374,18 +449,35 @@ export function signup(name: string, email: string, departmentId: string | null)
 }
 
 export function logout() {
-  const user = getCurrentUser();
+  const user = employees.find(e => e.id === currentUserId);
   if (user) {
     logActivity(user.id, user.name, 'Logged Out', 'Employee', user.id, 'User logged out.');
   }
-  currentUserId = null;
-  localStorage.removeItem(KEYS.CURRENT_USER_ID);
+  currentUserId = 'logged_out';
+  localStorage.setItem(KEYS.CURRENT_USER_ID, 'logged_out');
 }
 
 // Switch user for easy demoing of multiple RBAC roles
 export function demoSwitchUser(userId: string): Employee | null {
-  const user = employees.find(e => e.id === userId);
+  let user = employees.find(e => e.id === userId);
+  
+  if (!user) {
+    if (userId === DEFAULT_ADMIN_ID || userId.toLowerCase().includes('admin') || userId.toLowerCase().includes('kshitij')) {
+      user = getDefaultAdminUser();
+    } else if (userId === 'emp-jack' || userId.toLowerCase().includes('manager')) {
+      user = employees.find(e => e.role === 'Asset Manager' || e.name.toLowerCase().includes('garvit')) || SEED_EMPLOYEES[1];
+    } else if (userId === 'emp-marcus' || userId.toLowerCase().includes('head')) {
+      user = employees.find(e => e.role === 'Department Head' || e.name.toLowerCase().includes('rohan')) || SEED_EMPLOYEES[2];
+    } else if (userId === 'emp-jane' || userId.toLowerCase().includes('employee')) {
+      user = employees.find(e => e.role === 'Employee' || e.name.toLowerCase().includes('priya')) || SEED_EMPLOYEES[3];
+    }
+  }
+
   if (user) {
+    if (user.status !== 'Active') {
+      user.status = 'Active';
+      saveState.employees();
+    }
     currentUserId = user.id;
     localStorage.setItem(KEYS.CURRENT_USER_ID, currentUserId);
     logActivity(user.id, user.name, 'Switched Session (Demo)', 'Employee', user.id, `Switched session to ${user.name}`);
@@ -470,7 +562,11 @@ export function updateCategory(id: string, name: string, customFields: CustomFie
 export function updateEmployeeRole(employeeId: string, role: EmployeeRole, departmentId: string | null, status: 'Active' | 'Inactive') {
   employees = employees.map(e => {
     if (e.id === employeeId) {
-      return { ...e, role, departmentId, status };
+      // Ensure default admin is never marked inactive or demoted by mistake
+      const isDefaultAdmin = employeeId === DEFAULT_ADMIN_ID || e.name.toLowerCase().includes('kshitij');
+      const safeStatus = isDefaultAdmin ? 'Active' : status;
+      const safeRole = isDefaultAdmin ? 'Admin' : role;
+      return { ...e, role: safeRole, departmentId, status: safeStatus };
     }
     return e;
   });
@@ -1292,7 +1388,7 @@ export async function initFirebaseSync() {
   });
 
   onSnapshot(collection(db, 'employees'), (snap) => {
-    employees = snap.docs.map(d => d.data() as Employee);
+    employees = ensureAdminEmployee(snap.docs.map(d => ({ ...d.data(), id: d.id } as Employee)));
     localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify(employees));
     notifySubscribers();
   }, (err) => {

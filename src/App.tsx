@@ -29,7 +29,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   
   // React State Mirrors of localStorage DB
-  const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [currentUser, setCurrentUser] = useState<Employee | null>(() => db.getCurrentUser());
   const [departments, setDepartments] = useState<Department[]>([]);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -148,13 +148,14 @@ export default function App() {
 
   const handleLogout = () => {
     db.logout();
-    reloadState();
+    setCurrentUser(null);
     setShowProfileMenu(false);
   };
 
   const handleDemoSwitch = (userId: string) => {
     db.demoSwitchUser(userId);
     reloadState();
+    setCurrentScreen('dashboard');
     setShowProfileMenu(false);
   };
 
@@ -319,24 +320,73 @@ export default function App() {
               </div>
             )}
 
+            {/* DEFAULT DEMO SESSION HIGHLIGHT */}
+            <div className="p-4 bg-gradient-to-br from-indigo-950/70 via-slate-900 to-indigo-900/30 border-2 border-indigo-500/40 rounded-xl space-y-3 shadow-lg shadow-indigo-950/50">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  <Shield className="w-3 h-3 text-indigo-400" />
+                  Default Admin Session
+                </span>
+                <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Active & Ready
+                </span>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  Kshitij Patil
+                  <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded font-medium">Administrator</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  admin@assetflow.com • Full Enterprise Master Clearance
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDemoSwitch('emp-sarah')}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition cursor-pointer"
+              >
+                <Shield className="w-4 h-4 text-amber-300" />
+                <span>Log In as Kshitij Patil (Admin)</span>
+              </button>
+            </div>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="flex-shrink mx-3 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Or Sign In with Email</span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
             {!isSigningUp ? (
               /* LOGIN FORM */
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-400 font-bold uppercase">Work Email Address</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs text-slate-400 font-bold uppercase">Work Email Address</label>
+                    <button
+                      type="button"
+                      onClick={() => setLoginEmail('admin@assetflow.com')}
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer underline"
+                    >
+                      Fill Admin Email
+                    </button>
+                  </div>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    placeholder="e.g. employee@assetflow.com"
+                    placeholder="e.g. admin@assetflow.com or kshitij"
                     value={loginEmail}
                     onChange={e => setLoginEmail(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-indigo-500"
                   />
+                  <p className="text-[10px] text-slate-500">
+                    Supports <code>admin@assetflow.com</code>, <code>kshitijpatilkunzarkar2550@gmail.com</code>, or simply <code>admin</code>.
+                  </p>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full text-center py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition cursor-pointer text-sm"
+                  className="w-full text-center py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold rounded-lg transition cursor-pointer text-sm"
                 >
                   Authorize Session
                 </button>
@@ -407,7 +457,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* DEMO QUICK PROFILES ROW (Extremely useful for review & evaluation) */}
+            {/* DEMO QUICK PROFILES ROW */}
             <div className="pt-6 border-t border-slate-800/80 space-y-3">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">
                 Demo Security Clearance Switcher
@@ -416,10 +466,13 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => handleDemoSwitch('emp-sarah')}
-                  className="p-2.5 bg-slate-950 hover:bg-indigo-900/10 border border-slate-800 hover:border-indigo-500/30 text-left rounded-lg transition flex flex-col cursor-pointer"
+                  className="p-2.5 bg-indigo-950/30 hover:bg-indigo-900/30 border border-indigo-500/40 text-left rounded-lg transition flex flex-col cursor-pointer col-span-2 sm:col-span-1"
                 >
-                  <strong className="text-white">Kshitij Patil</strong>
-                  <span className="text-[9px] text-rose-400">Admin Clearance</span>
+                  <div className="flex items-center justify-between">
+                    <strong className="text-white">Kshitij Patil</strong>
+                    <span className="text-[9px] bg-indigo-500/30 text-indigo-300 px-1 rounded font-mono">DEFAULT</span>
+                  </div>
+                  <span className="text-[9px] text-rose-400 font-medium">Admin Clearance</span>
                 </button>
 
                 <button
@@ -675,9 +728,12 @@ export default function App() {
               {showProfileMenu && (
                 <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-800 rounded-lg shadow-xl py-1 z-50 text-xs">
                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider px-3 py-1 border-b border-slate-800/60">Choose Profile Role</p>
-                  <button onClick={() => handleDemoSwitch('emp-sarah')} className="w-full text-left px-3 py-2 hover:bg-slate-800 transition flex flex-col cursor-pointer">
-                    <span className="font-semibold text-slate-200">Kshitij Patil</span>
-                    <span className="text-[9px] text-rose-400">Admin Clearance</span>
+                  <button onClick={() => handleDemoSwitch('emp-sarah')} className="w-full text-left px-3 py-2 hover:bg-slate-800 transition flex flex-col cursor-pointer bg-indigo-950/20">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-white">Kshitij Patil</span>
+                      <span className="text-[8px] bg-indigo-500/30 text-indigo-300 px-1 py-0.2 rounded font-mono">DEFAULT</span>
+                    </div>
+                    <span className="text-[9px] text-rose-400 font-medium">Admin Clearance</span>
                   </button>
                   <button onClick={() => handleDemoSwitch('emp-jack')} className="w-full text-left px-3 py-2 hover:bg-slate-800 transition flex flex-col cursor-pointer">
                     <span className="font-semibold text-slate-200">Garvit Sharma</span>
@@ -689,6 +745,10 @@ export default function App() {
                   </button>
                   <button onClick={() => handleDemoSwitch('emp-jane')} className="w-full text-left px-3 py-2 hover:bg-slate-800 transition flex flex-col cursor-pointer">
                     <span className="font-semibold text-slate-200">Priya Patel</span>
+                    <span className="text-[9px] text-slate-400">Employee Role</span>
+                  </button>
+                  <button onClick={() => handleDemoSwitch('emp-bob')} className="w-full text-left px-3 py-2 hover:bg-slate-800 transition flex flex-col cursor-pointer">
+                    <span className="font-semibold text-slate-200">Amit Singh</span>
                     <span className="text-[9px] text-slate-400">Employee Role</span>
                   </button>
                 </div>
